@@ -1,5 +1,7 @@
 import pandas as pd
-import numpy as np 
+import numpy as np
+import statsmodels.api as sm 
+from tqdm import tqdm
 
 class Strategy:
 	def __init__(self):
@@ -7,15 +9,36 @@ class Strategy:
 		self.market_prices = []
 		self.risk_free_rates = []
 
-	def allocate_portfolio(self, stock_price, market_price, risk_free_rate):	
-		self.stock_prices.append(list(stock_price))
+	def allocate_portfolio(self, stock_price, market_price, risk_free_rate):			
+		self.stock_prices.append(stock_price)
 		self.market_prices.append(market_price)
-		self.risk_free_rates.append(risk_free_rate)
-		
-		# self.stock_prices, self.market_prices, self.risk_free_rates = np.array(self.stock_prices), np.array(self.market_prices), np.array(self.risk_free_rates)
-		# Write Your Strategy Here
-		n_stocks = len(stock_price)
-		weights = np.repeat(1 / n_stocks, n_stocks)
+		self.risk_free_rates.append(risk_free_rate)	
+
+		if len(self.stock_prices) == 1:
+			return np.array([1 / len(stock_price) for _ in range(len(stock_price))])
+		# ------CAPM------ # 
+		rf = (1+risk_free_rate)**(1/360) - 1   # Average risk-free rate
+		stock_returns = pd.DataFrame(np.array(self.stock_prices)).pct_change()
+		r_p = stock_returns - rf
+		market_pct_change = pd.Series(self.market_prices).pct_change()
+		market_pct_change -= rf
+		r_p = np.concatenate((r_p, np.array(market_pct_change).reshape((len(self.market_prices), 1))), axis = 1)
+		r_p = pd.DataFrame(r_p)
+		r_p = r_p.fillna(0)
+
+		alphas, betas = [], []
+		for stock in r_p.iloc[:, :-1]:	
+			model = sm.OLS(r_p[stock], sm.add_constant(r_p.iloc[:, -1]))
+			result = model.fit()	
+			alpha, beta = list(result.params)[0], list(result.params)[1] 
+			alphas.append(alpha)
+			betas.append(beta)	
+
+		weights = np.zeros((len(stock_price), ))	
+
+		weights[np.argmax(alphas)] = 0.5
+		weights[np.argmin(betas)] = 0.5
+			
 		return weights
 
 class BackTester:
@@ -34,12 +57,12 @@ class BackTester:
 	def run(self, verbose=True):
 		def calc_excR(s_p, r, pre_pos, pre_data):
 			pre_stock_price, pre_r = pre_data[0], pre_data[1]
-			stock_returns = (np.array(s_p) - np.array(pre_stock_price)) / np.array(s_p)
+			stock_returns = (np.array(s_p) - np.array(pre_stock_price)) / np.array(s_p)	
 			return np.sum(stock_returns * np.array(pre_pos))
 		cur_position = np.array([None] * np.shape(self.stock_prices)[1])
 		pre_data = (None, None, None) 	# For Return Calculation
 		self.dailiy_excR = [] 	# Daily Excessive Return	
-		for ((idx, stock_price), market_price, risk_free_rate) in zip(self.stock_prices.iterrows(), self.market_prices, self.risk_free_rates):
+		for ((idx, stock_price), market_price, risk_free_rate) in tqdm(zip(self.stock_prices.iterrows(), self.market_prices, self.risk_free_rates), total=len(self.market_prices)):		
 			if cur_position.any() != None:
 				self.dailiy_excR.append(calc_excR(stock_price, risk_free_rate, cur_position, pre_data))
 				if verbose:
@@ -49,7 +72,7 @@ class BackTester:
 
 	def evaluate(self):
 		def calc_sharp(daily_excR, r):
-			return (np.mean(daily_excR) - r) / np.sqrt(np.var(daily_excR)) * np.sqrt(252)
+			return (np.mean(daily_excR)) / np.sqrt(np.var(daily_excR)) * np.sqrt(252)
 		print("-------Evaluation-------")
 		print("  Year  |   Annulized Sharp Ratio")
 		a_sharps = []

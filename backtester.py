@@ -49,7 +49,7 @@ class BackTester:
 
 	def evaluate(self):
 		def calc_sharp(daily_excR, r):
-			return (np.mean(daily_excR - r) / np.sqrt(np.var(daily_excR))) * np.sqrt(252)
+			return (np.mean(daily_excR) - r) / np.sqrt(np.var(daily_excR)) * np.sqrt(252)
 		print("-------Evaluation-------")
 		print("  Year  |   Annulized Sharp Ratio")
 		a_sharps = []

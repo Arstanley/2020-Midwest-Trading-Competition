@@ -2,20 +2,24 @@ import pandas as pd
 import numpy as np
 import statsmodels.api as sm 
 from tqdm import tqdm
+import seaborn as sns
+import matplotlib.pyplot as plt
 
-class Strategy:
+class Strategy1:
 	def __init__(self):
 		self.stock_prices = []
 		self.market_prices = []
 		self.risk_free_rates = []
 
-	def allocate_portfolio(self, stock_price, market_price, risk_free_rate):			
+	def allocate_portfolio(self, stock_price, market_price, risk_free_rate):				
+
 		self.stock_prices.append(stock_price)
 		self.market_prices.append(market_price)
 		self.risk_free_rates.append(risk_free_rate)	
 
 		if len(self.stock_prices) == 1:
 			return np.array([1 / len(stock_price) for _ in range(len(stock_price))])
+		
 		# ------CAPM------ # 
 		rf = (1+risk_free_rate)**(1/360) - 1   # Average risk-free rate
 		stock_returns = pd.DataFrame(np.array(self.stock_prices)).pct_change()
@@ -36,9 +40,9 @@ class Strategy:
 
 		weights = np.zeros((len(stock_price), ))	
 
-		weights[np.argmax(alphas)] = 0.5
-		weights[np.argmin(betas)] = 0.5
-			
+		weights[np.argmin(alphas)] = 0.5
+		weights[np.argmax(beta)] = 0.5
+		
 		return weights
 
 class BackTester:
@@ -73,6 +77,7 @@ class BackTester:
 	def evaluate(self):
 		def calc_sharp(daily_excR, r):
 			return (np.mean(daily_excR)) / np.sqrt(np.var(daily_excR)) * np.sqrt(252)
+
 		print("-------Evaluation-------")
 		print("  Year  |   Annulized Sharp Ratio")
 		a_sharps = []

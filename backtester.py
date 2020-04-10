@@ -15,7 +15,9 @@ class Strategy:
 		# self.stock_prices, self.market_prices, self.risk_free_rates = np.array(self.stock_prices), np.array(self.market_prices), np.array(self.risk_free_rates)
 		# Write Your Strategy Here
 		n_stocks = len(stock_price)
-		weights = np.repeat(1 / n_stocks, n_stocks)
+		
+		weights = np.repeat(0, 10)	
+
 		return weights
 
 class BackTester:
@@ -34,8 +36,8 @@ class BackTester:
 	def run(self, verbose=True):
 		def calc_excR(s_p, r, pre_pos, pre_data):
 			pre_stock_price, pre_r = pre_data[0], pre_data[1]
-			stock_returns = (np.array(s_p) - np.array(pre_stock_price)) / np.array(s_p)
-			return np.sum(stock_returns * np.array(pre_pos))
+			stock_returns = (np.array(s_p) - np.array(pre_stock_price)) / np.array(pre_stock_price)
+			return np.sum(stock_returns * np.array(pre_pos)) - (r/252)
 		cur_position = np.array([None] * np.shape(self.stock_prices)[1])
 		pre_data = (None, None, None) 	# For Return Calculation
 		self.dailiy_excR = [] 	# Daily Excessive Return	
@@ -48,13 +50,6 @@ class BackTester:
 			pre_data = (stock_price, risk_free_rate)
 
 	def evaluate(self):
-		def calc_sharp(daily_excR, r):
-			return (np.mean(daily_excR) - r) / np.sqrt(np.var(daily_excR)) * np.sqrt(252)
-		print("-------Evaluation-------")
-		print("  Year  |   Annulized Sharp Ratio")
-		a_sharps = []
-		for i in range(10):
-			a_sharp = calc_sharp(self.dailiy_excR[i:i+120], self.risk_free_rates[i + 120])
-			a_sharps.append(a_sharp)
-			print(f"    {i}   |   {a_sharp}  ")
-		print(f"Mean: {np.mean(a_sharps)}")
+		def calc_sharp(daily_excR, r):	
+			return np.mean(np.array(daily_excR)) / np.sqrt(np.var(daily_excR)) * np.sqrt(252)
+		print(calc_sharp(self.dailiy_excR, self.risk_free_rates))

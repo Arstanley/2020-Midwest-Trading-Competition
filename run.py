@@ -6,5 +6,5 @@ if __name__ == "__main__":
 	risk_free_rates = pd.read_csv("risk_free_train.csv", index_col = 0) 
 	strategy = Strategy()
 	BT = BackTester(stock_market_prices, risk_free_rates, strategy)
-	BT.run(verbose = False)
+	BT.run(verbose = True)
 	BT.evaluate()

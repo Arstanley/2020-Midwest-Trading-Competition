@@ -1,48 +1,40 @@
 import pandas as pd
 import numpy as np
-import statsmodels.api as sm 
+import statsmodels.api as sm
 from tqdm import tqdm
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-class Strategy1:
+class Strategy:
 	def __init__(self):
 		self.stock_prices = []
 		self.market_prices = []
 		self.risk_free_rates = []
 
-	def allocate_portfolio(self, stock_price, market_price, risk_free_rate):				
+	def fit(self, train_stock_prices, train_risk_free_rate):
+		# We first calculate the mean daily return for the data
+		s_prices, m_index = train_stock_prices.iloc[:, :-1], train_stock_prices.iloc[:, -1]
+
+		pct_changes = s_prices.pct_change()	
+		avg_changes = np.mean(s_prices, axis = 0)
+		annulized = avg_changes * np.sqrt(252)
+
+		# Then we calculate the covariance between stocks
+		cov = s_prices.cov()
+
+		print(cov)
+
+	def allocate_portfolio(self, stock_price, market_price, risk_free_rate):
 
 		self.stock_prices.append(stock_price)
 		self.market_prices.append(market_price)
-		self.risk_free_rates.append(risk_free_rate)	
+		self.risk_free_rates.append(risk_free_rate)
 
 		if len(self.stock_prices) == 1:
 			return np.array([1 / len(stock_price) for _ in range(len(stock_price))])
-		
-		# ------CAPM------ # 
-		rf = (1+risk_free_rate)**(1/360) - 1   # Average risk-free rate
-		stock_returns = pd.DataFrame(np.array(self.stock_prices)).pct_change()
-		r_p = stock_returns - rf
-		market_pct_change = pd.Series(self.market_prices).pct_change()
-		market_pct_change -= rf
-		r_p = np.concatenate((r_p, np.array(market_pct_change).reshape((len(self.market_prices), 1))), axis = 1)
-		r_p = pd.DataFrame(r_p)
-		r_p = r_p.fillna(0)
 
-		alphas, betas = [], []
-		for stock in r_p.iloc[:, :-1]:	
-			model = sm.OLS(r_p[stock], sm.add_constant(r_p.iloc[:, -1]))
-			result = model.fit()	
-			alpha, beta = list(result.params)[0], list(result.params)[1] 
-			alphas.append(alpha)
-			betas.append(beta)	
 
-		weights = np.zeros((len(stock_price), ))	
 
-		weights[np.argmin(alphas)] = 0.5
-		weights[np.argmax(beta)] = 0.5
-		
 		return weights
 
 class BackTester:
@@ -51,22 +43,22 @@ class BackTester:
 			rates = np.array(rates)
 			ret = []
 			for i in rates:
-				ret.extend([i[0] for _ in range(21)])	
+				ret.extend([i[0] for _ in range(21)])
 			return ret
 		self.stock_prices = stock_market_prices.iloc[:, :-1]
 		self.market_prices = stock_market_prices.iloc[:, -1]
-		self.risk_free_rates = transform_rates(risk_free_rates)	
+		self.risk_free_rates = transform_rates(risk_free_rates)
 		self.strategy = strategy
 
 	def run(self, verbose=True):
 		def calc_excR(s_p, r, pre_pos, pre_data):
 			pre_stock_price, pre_r = pre_data[0], pre_data[1]
-			stock_returns = (np.array(s_p) - np.array(pre_stock_price)) / np.array(s_p)	
+			stock_returns = (np.array(s_p) - np.array(pre_stock_price)) / np.array(s_p)
 			return np.sum(stock_returns * np.array(pre_pos))
 		cur_position = np.array([None] * np.shape(self.stock_prices)[1])
 		pre_data = (None, None, None) 	# For Return Calculation
-		self.dailiy_excR = [] 	# Daily Excessive Return	
-		for ((idx, stock_price), market_price, risk_free_rate) in tqdm(zip(self.stock_prices.iterrows(), self.market_prices, self.risk_free_rates), total=len(self.market_prices)):		
+		self.dailiy_excR = [] 	# Daily Excessive Return
+		for ((idx, stock_price), market_price, risk_free_rate) in tqdm(zip(self.stock_prices.iterrows(), self.market_prices, self.risk_free_rates), total=len(self.market_prices)):
 			if cur_position.any() != None:
 				self.dailiy_excR.append(calc_excR(stock_price, risk_free_rate, cur_position, pre_data))
 				if verbose:

@@ -16,7 +16,11 @@ class Strategy:
 		# Write Your Strategy Here
 		n_stocks = len(stock_price)
 		
-		weights = np.repeat(0, 10)	
+		weights = np.repeat(0.0, 10)	
+
+		weights[0] = 0.6
+		weights[2] = 0.2	
+		weights[6] = 0.2	
 
 		return weights
 
